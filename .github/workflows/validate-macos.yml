@@ -1,0 +1,83 @@
+name: Validate macOS development build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - baseline/v077-ci
+      - feature/v08-scan-rebind-lite
+
+permissions:
+  contents: read
+
+jobs:
+  validate-macos:
+    name: Test and build macOS artifact
+    runs-on: macos-latest
+
+    env:
+      DMG_NAME: sakuramedia-macos-v0.7.7-baseline-unsigned.dmg
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.2
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build macOS release
+        run: flutter build macos --release --build-name="0.7.7"
+
+      - name: Package unsigned DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          release_dir="build/macos/Build/Products/Release"
+          shopt -s nullglob
+          apps=("${release_dir}"/*.app)
+          shopt -u nullglob
+
+          if [ "${#apps[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one .app in ${release_dir}, found ${#apps[@]}"
+            ls -la "${release_dir}" || true
+            exit 1
+          fi
+
+          app_path="${apps[0]}"
+          staging="$(mktemp -d)"
+          cp -R "${app_path}" "${staging}/"
+          ln -s /Applications "${staging}/Applications"
+
+          attempt=1
+          until hdiutil create -volname "樱视" -srcfolder "${staging}" -ov -format UDZO "dist/${DMG_NAME}"; do
+            if [ "${attempt}" -ge 3 ]; then
+              echo "::error::hdiutil create failed after ${attempt} attempts"
+              rm -rf "${staging}"
+              exit 1
+            fi
+            attempt=$((attempt + 1))
+            echo "hdiutil create failed, retrying (${attempt}/3)..."
+            sleep 5
+          done
+          rm -rf "${staging}"
+          shasum -a 256 "dist/${DMG_NAME}" > "dist/${DMG_NAME}.sha256"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-v077-baseline-${{ github.run_id }}
+          path: |
+            dist/${{ env.DMG_NAME }}
+            dist/${{ env.DMG_NAME }}.sha256
+          if-no-files-found: error
