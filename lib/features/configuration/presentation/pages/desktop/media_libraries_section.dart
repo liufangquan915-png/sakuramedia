@@ -5,12 +5,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:oktoast/oktoast.dart';
 import 'package:sakuramedia/core/network/api_error_message.dart';
 import 'package:sakuramedia/features/configuration/data/dto/media_library_dto.dart';
+import 'package:sakuramedia/features/configuration/data/dto/media_library_scan_preview_dto.dart';
 import 'package:sakuramedia/features/configuration/data/dto/provider_catalog_dto.dart';
 import 'package:sakuramedia/features/configuration/presentation/forms/media_library_form.dart';
 import 'package:sakuramedia/features/configuration/presentation/forms/provider_config_form.dart';
 import 'package:sakuramedia/features/configuration/presentation/providers/media_libraries_provider.dart';
 import 'package:sakuramedia/features/configuration/presentation/providers/media_provider_catalog_provider.dart';
 import 'package:sakuramedia/features/configuration/presentation/widgets/shared/config_delete_helpers.dart';
+import 'package:sakuramedia/features/media/presentation/providers/media_api_provider.dart';
+import 'package:sakuramedia/features/media_import/data/media_import_source.dart';
+import 'package:sakuramedia/features/media_import/presentation/providers/media_import_api_provider.dart';
 import 'package:sakuramedia/theme.dart';
 import 'package:sakuramedia/widgets/base/actions/app_button.dart';
 import 'package:sakuramedia/widgets/base/actions/app_inline_action_button.dart';
@@ -33,6 +37,7 @@ class MediaLibrariesSection extends ConsumerStatefulWidget {
 }
 
 class _MediaLibrariesSectionState extends ConsumerState<MediaLibrariesSection> {
+  final Set<int> _scanningLibraries = <int>{};
   @override
   void didUpdateWidget(covariant MediaLibrariesSection oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -123,6 +128,48 @@ class _MediaLibrariesSectionState extends ConsumerState<MediaLibrariesSection> {
           ref.read(mediaLibrariesProvider.notifier).delete(library.id),
       successToast: '媒体库已删除',
       failureFallback: '删除媒体库失败',
+    );
+  }
+
+  Future<void> _scanLibrary(MediaLibraryDto library) async {
+    if (_scanningLibraries.contains(library.id)) return;
+    setState(() => _scanningLibraries.add(library.id));
+    try {
+      final preview = await ref
+          .read(mediaLibrariesApiProvider)
+          .scanPreview(library.id);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => _MediaLibraryScanDialog(
+          library: library,
+          preview: preview,
+          onImport: _importCandidate,
+          onRefresh: () => ref
+              .read(mediaLibrariesApiProvider)
+              .scanPreview(library.id),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        showToast(apiErrorMessage(error, fallback: '扫描媒体库失败'));
+      }
+    } finally {
+      if (mounted) setState(() => _scanningLibraries.remove(library.id));
+    }
+  }
+
+  Future<void> _importCandidate(NewMediaCandidateDto candidate) async {
+    await ref.read(mediaImportApiProvider).createImport(
+      mediaKind: 'video',
+      libraryId: candidate.libraryId,
+      source: MediaImportSource(
+        sourceRef: <String, dynamic>{
+          'version': 1,
+          'kind': 'readonly_local_path',
+          'relative_path': candidate.relativePath,
+        },
+      ),
     );
   }
 
@@ -241,6 +288,14 @@ class _MediaLibrariesSectionState extends ConsumerState<MediaLibrariesSection> {
           ),
           SizedBox(width: context.appSpacing.sm),
           AppInlineActionButton(
+            key: Key('media-library-scan-${library.id}'),
+            icon: _scanningLibraries.contains(library.id)
+                ? Icons.hourglass_top_rounded
+                : Icons.manage_search_rounded,
+            onTap: () => _scanLibrary(library),
+          ),
+          SizedBox(width: context.appSpacing.xs),
+          AppInlineActionButton(
             key: Key('media-library-edit-${library.id}'),
             icon: Icons.edit_outlined,
             onTap: () => _editLibrary(library),
@@ -253,6 +308,114 @@ class _MediaLibrariesSectionState extends ConsumerState<MediaLibrariesSection> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MediaLibraryScanDialog extends StatefulWidget {
+  const _MediaLibraryScanDialog({
+    required this.library,
+    required this.preview,
+    required this.onImport,
+    required this.onRefresh,
+  });
+
+  final MediaLibraryDto library;
+  final MediaLibraryScanPreviewDto preview;
+  final Future<void> Function(NewMediaCandidateDto candidate) onImport;
+  final Future<MediaLibraryScanPreviewDto> Function() onRefresh;
+
+  @override
+  State<_MediaLibraryScanDialog> createState() =>
+      _MediaLibraryScanDialogState();
+}
+
+class _MediaLibraryScanDialogState extends State<_MediaLibraryScanDialog> {
+  late MediaLibraryScanPreviewDto _preview = widget.preview;
+  final Set<String> _importing = <String>{};
+
+  Future<void> _import(NewMediaCandidateDto candidate) async {
+    if (!candidate.stable || _importing.contains(candidate.relativePath)) return;
+    setState(() => _importing.add(candidate.relativePath));
+    try {
+      await widget.onImport(candidate);
+      final refreshed = await widget.onRefresh();
+      if (!mounted) return;
+      setState(() => _preview = refreshed);
+      showToast('已提交导入，扫描结果已刷新');
+    } catch (error) {
+      if (mounted) showToast(apiErrorMessage(error, fallback: '加入媒体库失败'));
+    } finally {
+      if (mounted) setState(() => _importing.remove(candidate.relativePath));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = _preview.summary;
+    return AlertDialog(
+      key: Key('media-library-scan-dialog-${widget.library.id}'),
+      title: Text('扫描完成 · ${widget.library.name}'),
+      content: SizedBox(
+        width: 680,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '新增 ${summary.newCount}  ·  移动/改名 ${summary.movedCount}  ·  '
+                '缺失 ${summary.missingCount}  ·  未变化 ${summary.unchangedCount}',
+                key: const Key('media-library-scan-summary'),
+              ),
+              if (_preview.newItems.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Text('新增文件'),
+                for (final item in _preview.newItems)
+                  ListTile(
+                    key: Key('scan-new-${item.relativePath}'),
+                    title: Text(item.filename),
+                    subtitle: Text('${item.relativePath}\n${item.sizeBytes} bytes'),
+                    isThreeLine: true,
+                    trailing: AppButton(
+                      label: item.stable ? '加入媒体库' : '等待文件稳定',
+                      size: AppButtonSize.xSmall,
+                      isLoading: _importing.contains(item.relativePath),
+                      onPressed: item.stable ? () => _import(item) : null,
+                    ),
+                  ),
+              ],
+              if (_preview.movedItems.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Text('移动或改名'),
+                for (final item in _preview.movedItems)
+                  ListTile(
+                    key: Key('scan-moved-${item.mediaId}'),
+                    title: Text('media ${item.mediaId}'),
+                    subtitle: Text(
+                      '${item.oldRelativePath} → ${item.newRelativePath}\n'
+                      '${item.matchBasis} · '
+                      '检测到移动，当前版本暂不执行自动重绑',
+                    ),
+                    isThreeLine: true,
+                  ),
+              ],
+              if (_preview.missingItems.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Text('当前未找到源文件'),
+                for (final item in _preview.missingItems)
+                  ListTile(
+                    key: Key('scan-missing-${item.mediaId}'),
+                    title: Text('media ${item.mediaId}'),
+                    subtitle: Text(item.oldRelativePath),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        AppButton(label: '关闭', onPressed: () => Navigator.of(context).pop()),
+      ],
     );
   }
 }

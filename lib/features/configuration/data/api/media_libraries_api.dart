@@ -1,5 +1,6 @@
 import 'package:sakuramedia/core/network/api_client.dart';
 import 'package:sakuramedia/features/configuration/data/dto/media_library_dto.dart';
+import 'package:sakuramedia/features/configuration/data/dto/media_library_scan_preview_dto.dart';
 
 class MediaLibrariesApi {
   const MediaLibrariesApi({required ApiClient apiClient})
@@ -35,5 +36,13 @@ class MediaLibrariesApi {
 
   Future<void> deleteLibrary(int libraryId) {
     return _apiClient.deleteNoContent('/media-libraries/$libraryId');
+  }
+
+  /// Runs one read-only Storage Watcher preview for a single library.
+  Future<MediaLibraryScanPreviewDto> scanPreview(int libraryId) async {
+    final response = await _apiClient.post(
+      '/media-libraries/$libraryId/scan-preview',
+    );
+    return MediaLibraryScanPreviewDto.fromJson(response);
   }
 }

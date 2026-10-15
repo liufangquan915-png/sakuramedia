@@ -89,6 +89,65 @@ void main() {
       },
     );
   });
+
+  test('scan preview parses NEW MOVED MISSING and summary', () async {
+    final sessionStore = await _buildLoggedInSessionStore();
+    final bundle = await createTestApiBundle(sessionStore);
+    addTearDown(bundle.dispose);
+    addTearDown(sessionStore.dispose);
+
+    bundle.adapter.enqueueJson(
+      method: 'POST',
+      path: '/media-libraries/6/scan-preview',
+      body: <String, dynamic>{
+        'library_id': 6,
+        'summary': <String, dynamic>{
+          'new': 1,
+          'moved': 1,
+          'missing': 1,
+          'unchanged': 4712,
+        },
+        'new': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'filename': 'new.mp4',
+            'relative_path': 'incoming/new.mp4',
+            'size': 7340032,
+            'library_id': 6,
+            'stable': true,
+          },
+        ],
+        'moved': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'media_id': 42,
+            'old_relative_path': 'old.mp4',
+            'new_relative_path': 'moved/new.mp4',
+            'match_basis': 'same_uuid+device+inode+size',
+            'unique_match': true,
+          },
+        ],
+        'missing': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'media_id': 43,
+            'old_relative_path': 'missing.mp4',
+          },
+        ],
+      },
+    );
+
+    final result = await bundle.mediaLibrariesApi.scanPreview(6);
+
+    expect(result.libraryId, 6);
+    expect(result.summary.newCount, 1);
+    expect(result.summary.movedCount, 1);
+    expect(result.summary.missingCount, 1);
+    expect(result.summary.unchangedCount, 4712);
+    expect(result.newItems.single.relativePath, 'incoming/new.mp4');
+    expect(result.newItems.single.stable, isTrue);
+    expect(result.movedItems.single.mediaId, 42);
+    expect(result.movedItems.single.uniqueMatch, isTrue);
+    expect(result.missingItems.single.mediaId, 43);
+    expect(bundle.adapter.requests.single.method, 'POST');
+  });
 }
 
 Future<SessionStore> _buildLoggedInSessionStore() async {
