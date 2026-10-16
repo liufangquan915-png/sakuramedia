@@ -42,6 +42,7 @@ class MediaLibrariesApi {
   Future<MediaLibraryScanPreviewDto> scanPreview(int libraryId) async {
     final response = await _apiClient.post(
       '/media-libraries/$libraryId/scan-preview',
+      receiveTimeout: const Duration(minutes: 16),
     );
     return MediaLibraryScanPreviewDto.fromJson(response);
   }

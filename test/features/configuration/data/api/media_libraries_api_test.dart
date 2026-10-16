@@ -147,6 +147,10 @@ void main() {
     expect(result.movedItems.single.uniqueMatch, isTrue);
     expect(result.missingItems.single.mediaId, 43);
     expect(bundle.adapter.requests.single.method, 'POST');
+    expect(
+      bundle.adapter.requests.single.receiveTimeout,
+      const Duration(minutes: 16),
+    );
   });
 }
 
