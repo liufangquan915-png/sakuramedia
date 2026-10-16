@@ -109,6 +109,59 @@ void main() {
       expect(bundle.adapter.hitCount('GET', '/playlists'), 0);
     });
 
+    testWidgets('scan preview dialog uses readable app text tones', (
+      WidgetTester tester,
+    ) async {
+      _enqueueMediaLibraries(bundle);
+      bundle.adapter.enqueueJson(
+        method: 'POST',
+        path: '/media-libraries/1/scan-preview',
+        body: <String, dynamic>{
+          'library_id': 1,
+          'summary': <String, dynamic>{
+            'new': 1,
+            'moved': 0,
+            'missing': 0,
+            'unchanged': 124,
+          },
+          'new': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'filename': '新增候选.mp4',
+              'relative_path': 'SakuraMedia-Canary/新增候选.mp4',
+              'size': 6291456,
+              'library_id': 1,
+              'stable': false,
+            },
+          ],
+          'moved': const <Map<String, dynamic>>[],
+          'missing': const <Map<String, dynamic>>[],
+        },
+      );
+
+      await _pumpPage(tester, bundle, sessionStore: sessionStore);
+      await tester.tap(find.byKey(const Key('media-library-scan-1')));
+      await tester.pumpAndSettle();
+
+      final title = tester.widget<Text>(find.text('扫描完成 · Main Library'));
+      final summary = tester.widget<Text>(
+        find.byKey(const Key('media-library-scan-summary')),
+      );
+      final sectionTitle = tester.widget<Text>(find.text('新增文件'));
+      final candidate = tester.widget<Text>(find.text('新增候选.mp4'));
+      final candidatePath = tester.widget<Text>(
+        find.text('SakuraMedia-Canary/新增候选.mp4\n6291456 bytes'),
+      );
+
+      expect(title.style?.color, sakuraThemeData.appTextPalette.primary);
+      expect(summary.style?.color, sakuraThemeData.appTextPalette.primary);
+      expect(sectionTitle.style?.color, sakuraThemeData.appTextPalette.primary);
+      expect(candidate.style?.color, sakuraThemeData.appTextPalette.primary);
+      expect(candidatePath.style?.color, sakuraThemeData.appTextPalette.muted);
+      expect(title.style?.color, isNotNull);
+      expect(summary.style?.color, isNotNull);
+      expect(candidate.style?.color, isNotNull);
+    });
+
     testWidgets('rebuilds the image-search index from system maintenance', (
       WidgetTester tester,
     ) async {

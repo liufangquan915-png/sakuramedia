@@ -355,7 +355,16 @@ class _MediaLibraryScanDialogState extends State<_MediaLibraryScanDialog> {
     final summary = _preview.summary;
     return AlertDialog(
       key: Key('media-library-scan-dialog-${widget.library.id}'),
-      title: Text('扫描完成 · ${widget.library.name}'),
+      backgroundColor: context.appColors.surfaceCard,
+      title: Text(
+        '扫描完成 · ${widget.library.name}',
+        style: resolveAppTextStyle(
+          context,
+          size: AppTextSize.s18,
+          weight: AppTextWeight.semibold,
+          tone: AppTextTone.primary,
+        ),
+      ),
       content: SizedBox(
         width: 680,
         child: SingleChildScrollView(
@@ -366,15 +375,43 @@ class _MediaLibraryScanDialogState extends State<_MediaLibraryScanDialog> {
                 '新增 ${summary.newCount}  ·  移动/改名 ${summary.movedCount}  ·  '
                 '缺失 ${summary.missingCount}  ·  未变化 ${summary.unchangedCount}',
                 key: const Key('media-library-scan-summary'),
+                style: resolveAppTextStyle(
+                  context,
+                  size: AppTextSize.s14,
+                  weight: AppTextWeight.medium,
+                  tone: AppTextTone.primary,
+                ),
               ),
               if (_preview.newItems.isNotEmpty) ...[
                 const SizedBox(height: 20),
-                const Text('新增文件'),
+                Text(
+                  '新增文件',
+                  style: resolveAppTextStyle(
+                    context,
+                    size: AppTextSize.s14,
+                    weight: AppTextWeight.semibold,
+                    tone: AppTextTone.primary,
+                  ),
+                ),
                 for (final item in _preview.newItems)
                   ListTile(
                     key: Key('scan-new-${item.relativePath}'),
-                    title: Text(item.filename),
-                    subtitle: Text('${item.relativePath}\n${item.sizeBytes} bytes'),
+                    title: Text(
+                      item.filename,
+                      style: resolveAppTextStyle(
+                        context,
+                        size: AppTextSize.s14,
+                        tone: AppTextTone.primary,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${item.relativePath}\n${item.sizeBytes} bytes',
+                      style: resolveAppTextStyle(
+                        context,
+                        size: AppTextSize.s12,
+                        tone: AppTextTone.muted,
+                      ),
+                    ),
                     isThreeLine: true,
                     trailing: AppButton(
                       label: item.stable ? '加入媒体库' : '等待文件稳定',
@@ -386,27 +423,69 @@ class _MediaLibraryScanDialogState extends State<_MediaLibraryScanDialog> {
               ],
               if (_preview.movedItems.isNotEmpty) ...[
                 const SizedBox(height: 20),
-                const Text('移动或改名'),
+                Text(
+                  '移动或改名',
+                  style: resolveAppTextStyle(
+                    context,
+                    size: AppTextSize.s14,
+                    weight: AppTextWeight.semibold,
+                    tone: AppTextTone.primary,
+                  ),
+                ),
                 for (final item in _preview.movedItems)
                   ListTile(
                     key: Key('scan-moved-${item.mediaId}'),
-                    title: Text('media ${item.mediaId}'),
+                    title: Text(
+                      'media ${item.mediaId}',
+                      style: resolveAppTextStyle(
+                        context,
+                        size: AppTextSize.s14,
+                        tone: AppTextTone.primary,
+                      ),
+                    ),
                     subtitle: Text(
                       '${item.oldRelativePath} → ${item.newRelativePath}\n'
                       '${item.matchBasis} · '
                       '检测到移动，当前版本暂不执行自动重绑',
+                      style: resolveAppTextStyle(
+                        context,
+                        size: AppTextSize.s12,
+                        tone: AppTextTone.muted,
+                      ),
                     ),
                     isThreeLine: true,
                   ),
               ],
               if (_preview.missingItems.isNotEmpty) ...[
                 const SizedBox(height: 20),
-                const Text('当前未找到源文件'),
+                Text(
+                  '当前未找到源文件',
+                  style: resolveAppTextStyle(
+                    context,
+                    size: AppTextSize.s14,
+                    weight: AppTextWeight.semibold,
+                    tone: AppTextTone.primary,
+                  ),
+                ),
                 for (final item in _preview.missingItems)
                   ListTile(
                     key: Key('scan-missing-${item.mediaId}'),
-                    title: Text('media ${item.mediaId}'),
-                    subtitle: Text(item.oldRelativePath),
+                    title: Text(
+                      'media ${item.mediaId}',
+                      style: resolveAppTextStyle(
+                        context,
+                        size: AppTextSize.s14,
+                        tone: AppTextTone.primary,
+                      ),
+                    ),
+                    subtitle: Text(
+                      item.oldRelativePath,
+                      style: resolveAppTextStyle(
+                        context,
+                        size: AppTextSize.s12,
+                        tone: AppTextTone.muted,
+                      ),
+                    ),
                   ),
               ],
             ],
