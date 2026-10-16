@@ -413,11 +413,14 @@ class _MediaLibraryScanDialogState extends State<_MediaLibraryScanDialog> {
                       ),
                     ),
                     isThreeLine: true,
-                    trailing: AppButton(
-                      label: item.stable ? '加入媒体库' : '等待文件稳定',
-                      size: AppButtonSize.xSmall,
-                      isLoading: _importing.contains(item.relativePath),
-                      onPressed: item.stable ? () => _import(item) : null,
+                    trailing: SizedBox(
+                      width: 112,
+                      child: AppButton(
+                        label: item.stable ? '加入媒体库' : '等待文件稳定',
+                        size: AppButtonSize.xSmall,
+                        isLoading: _importing.contains(item.relativePath),
+                        onPressed: item.stable ? () => _import(item) : null,
+                      ),
                     ),
                   ),
               ],
