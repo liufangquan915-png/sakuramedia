@@ -1,5 +1,7 @@
 # SakuraMedia v0.8.8
 
+macOS App 构建号：`1`。
+
 本版本是个人本地媒体库桌面端的受控封板版本，基于 v0.7.7 稳定客户端增加：
 
 - 媒体库只读扫描 Preview，显示 NEW、MOVED、MISSING 与 UNCHANGED 汇总和明细；
