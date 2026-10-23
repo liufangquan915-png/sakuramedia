@@ -16,7 +16,7 @@ jobs:
     runs-on: macos-latest
 
     env:
-      DMG_NAME: sakuramedia-macos-v0.7.7-baseline-unsigned.dmg
+      DMG_NAME: sakuramedia-macos-v0.8.8-unsigned.dmg
 
     steps:
       - name: Checkout repository
@@ -36,7 +36,7 @@ jobs:
         run: flutter test
 
       - name: Build macOS release
-        run: flutter build macos --release --build-name="0.7.7"
+        run: flutter build macos --release --build-name="0.8.8" --build-number="1"
 
       - name: Package unsigned DMG
         shell: bash
@@ -76,7 +76,7 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos-v077-baseline-${{ github.run_id }}
+          name: macos-v088-release-${{ github.run_id }}
           path: |
             dist/${{ env.DMG_NAME }}
             dist/${{ env.DMG_NAME }}.sha256
