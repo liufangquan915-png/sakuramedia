@@ -44,11 +44,33 @@ void main() {
     expect(find.text('普通视频加载失败，请稍后重试'), findsOneWidget);
     expect(find.text('最近添加的普通视频'), findsOneWidget);
   });
+
+  testWidgets('loading 结束后只显示前8条普通视频', (tester) async {
+    await _pumpSection(
+      tester,
+      items: const <VideoItemListItemDto>[],
+      isLoading: true,
+    );
+
+    expect(find.byKey(const Key('video-summary-grid-skeleton')), findsOneWidget);
+
+    final fixtures = List<VideoItemListItemDto>.generate(
+      9,
+      (index) => _video(800 - index, '普通视频 ${index + 1}'),
+    );
+    await _pumpSection(tester, items: fixtures.take(8).toList());
+
+    expect(find.byKey(const Key('video-summary-grid')), findsOneWidget);
+    expect(find.text('普通视频 1'), findsOneWidget);
+    expect(find.text('普通视频 8'), findsOneWidget);
+    expect(find.text('普通视频 9'), findsNothing);
+  });
 }
 
 Future<void> _pumpSection(
   WidgetTester tester, {
   required List<VideoItemListItemDto> items,
+  bool isLoading = false,
   String? errorMessage,
   ValueChanged<VideoItemListItemDto>? onVideoTap,
   VoidCallback? onViewAll,
@@ -65,7 +87,7 @@ Future<void> _pumpSection(
           slivers: [
             OverviewRecentVideosSliverSection(
               items: items,
-              isLoading: false,
+              isLoading: isLoading,
               errorMessage: errorMessage,
               onVideoTap: onVideoTap ?? (_) {},
               onViewAll: onViewAll ?? () {},

@@ -28,6 +28,7 @@ import 'package:sakuramedia/routes/mobile_routes.dart';
 import 'package:sakuramedia/theme.dart';
 
 import '../support/test_api_bundle.dart';
+import '../support/fake_http_client_adapter.dart';
 
 const List<_MobileSettingsRouteCase> _mobileSettingsRouteCases =
     <_MobileSettingsRouteCase>[
@@ -3010,6 +3011,81 @@ void main() {
     expect(find.text('影片详情'), findsOneWidget);
   });
 
+  testWidgets('overview ordinary-video card opens the desktop video player route', (
+    WidgetTester tester,
+  ) async {
+    final sessionStore = await _buildLoggedInSessionStore();
+    final bundle = await createTestApiBundle(sessionStore);
+    addTearDown(bundle.dispose);
+    _enqueueDesktopOverviewResponses(bundle);
+    _enqueueOverviewOrdinaryVideoResponses(bundle);
+    bundle.adapter.enqueueJson(
+      method: 'GET',
+      path: '/videos/901',
+      body: <String, dynamic>{
+        ..._overviewOrdinaryVideo(901, '普通视频 1'),
+        'media_items': const <dynamic>[],
+      },
+    );
+    final router = buildDesktopRouter(sessionStore: sessionStore);
+
+    tester.view.physicalSize = const Size(1440, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: bundle.riverpodOverrides(),
+        child: MaterialApp.router(theme: sakuraThemeData, routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('最近添加的普通视频'), findsOneWidget);
+    expect(find.text('普通视频 9'), findsNothing);
+    await tester.tap(find.byKey(const Key('video-summary-card-tap-901')));
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      '/desktop/library/videos/901/player',
+    );
+    expect(bundle.adapter.hitCount('GET', '/videos/901'), 1);
+    _expectOverviewReadOnlyRequests(bundle);
+  });
+
+  testWidgets('overview ordinary-video view-all opens the video list route', (
+    WidgetTester tester,
+  ) async {
+    final sessionStore = await _buildLoggedInSessionStore();
+    final bundle = await createTestApiBundle(sessionStore);
+    addTearDown(bundle.dispose);
+    _enqueueDesktopOverviewResponses(bundle);
+    _enqueueOverviewOrdinaryVideoResponses(bundle);
+    final router = buildDesktopRouter(sessionStore: sessionStore);
+
+    tester.view.physicalSize = const Size(1440, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: bundle.riverpodOverrides(),
+        child: MaterialApp.router(theme: sakuraThemeData, routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('overview-recent-videos-view-all')));
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, desktopVideosPath);
+    expect(find.byKey(const Key('videos-page')), findsOneWidget);
+    _expectOverviewReadOnlyRequests(bundle);
+  });
+
   testWidgets('top bar back returns to overview after opening movie detail', (
     WidgetTester tester,
   ) async {
@@ -3835,6 +3911,67 @@ void _enqueueDesktopOverviewResponses(TestApiBundle bundle) {
       'page_size': 8,
       'total': 1,
     },
+  );
+}
+
+void _enqueueOverviewOrdinaryVideoResponses(TestApiBundle bundle) {
+  final allFixtures = List<Map<String, dynamic>>.generate(
+    9,
+    (index) => _overviewOrdinaryVideo(901 - index, '普通视频 ${index + 1}'),
+  );
+  bundle.adapter.setFallbackJson(
+    method: 'GET',
+    path: '/videos',
+    body: <String, dynamic>{
+      'items': allFixtures.take(8).toList(),
+      'page': 1,
+      'page_size': 8,
+      'total': allFixtures.length,
+    },
+  );
+}
+
+Map<String, dynamic> _overviewOrdinaryVideo(int id, String title) =>
+    <String, dynamic>{
+      'id': id,
+      'title': title,
+      'summary': '普通视频测试夹具',
+      'cover_image': null,
+      'release_date': null,
+      'duration_seconds': 60,
+      'file_size_bytes': 6000000,
+      'cover_width': 16,
+      'cover_height': 9,
+      'media_count': 1,
+      'can_play': true,
+      'collections': const <dynamic>[],
+      'created_at': '2026-10-25T10:00:00',
+      'updated_at': '2026-10-25T10:00:00',
+    };
+
+void _expectOverviewReadOnlyRequests(TestApiBundle bundle) {
+  const forbiddenFragments = <String>[
+    'import',
+    'javdb',
+    'metadata',
+  ];
+  expect(
+    bundle.adapter.requests,
+    everyElement(
+      isA<RecordedRequest>()
+          .having((request) => request.method, 'method', 'GET')
+          .having(
+            (request) => forbiddenFragments.any(request.path.contains),
+            'forbidden write/integration endpoint',
+            isFalse,
+          ),
+    ),
+  );
+  expect(
+    bundle.adapter.requests.every(
+      (request) => request.uri.host == 'api.example.com',
+    ),
+    isTrue,
   );
 }
 

@@ -43,23 +43,27 @@ void main() {
   });
 
   test('只读请求固定按入库时间倒序取前8条普通视频', () async {
+    final allFixtures = List<Map<String, dynamic>>.generate(
+      10,
+      (index) => _video(100 - index, '普通视频 ${index + 1}'),
+    );
     adapter.enqueueJson(
       method: 'GET',
       path: '/videos',
       body: <String, dynamic>{
-        'items': <dynamic>[
-          _video(30, '最新普通视频'),
-          _video(20, '较早普通视频'),
-        ],
+        // Fake API 遵守 page_size 契约：数据集有 10 条，但概览只取前 8 条。
+        'items': allFixtures.take(8).toList(),
         'page': 1,
         'page_size': 8,
-        'total': 2,
+        'total': allFixtures.length,
       },
     );
 
     final items = await container.read(overviewRecentVideosProvider.future);
 
-    expect(items.map((item) => item.id), <int>[30, 20]);
+    expect(items, hasLength(8));
+    expect(items.map((item) => item.id), <int>[100, 99, 98, 97, 96, 95, 94, 93]);
+    expect(items.any((item) => item.id == 92), isFalse);
     final request = adapter.requests.single;
     expect(request.method, 'GET');
     expect(request.path, '/videos');
