@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sakuramedia/features/movies/presentation/actions/movie_collection_feature_actions.dart';
 import 'package:sakuramedia/features/movies/presentation/providers/movie_summary_provider.dart';
 import 'package:sakuramedia/features/movies/presentation/providers/movie_summary_scope.dart';
@@ -9,6 +10,8 @@ import 'package:sakuramedia/features/movies/presentation/providers/movie_summary
 import 'package:sakuramedia/features/overview/presentation/overview_system_info_format.dart';
 import 'package:sakuramedia/features/overview/presentation/providers/overview_system_info_provider.dart';
 import 'package:sakuramedia/features/overview/presentation/providers/overview_system_info_state.dart';
+import 'package:sakuramedia/features/overview/presentation/providers/overview_recent_videos_provider.dart';
+import 'package:sakuramedia/features/overview/presentation/widgets/overview_recent_videos_section.dart';
 import 'package:sakuramedia/features/subscriptions/presentation/subscription_feedback.dart';
 import 'package:sakuramedia/routes/app_navigation_actions.dart';
 import 'package:sakuramedia/routes/app_navigation.dart';
@@ -65,7 +68,13 @@ class _DesktopOverviewPageState extends ConsumerState<DesktopOverviewPage> {
       // 沿用旧行为:桌面刷新走 load()(不置 loading 标志),统计条不闪骨架。
       ref.read(overviewSystemInfoProvider.notifier).load(),
       ref.read(movieSummaryProvider(_latestScope).notifier).refresh(),
+      _refreshRecentVideos(),
     ]);
+  }
+
+  Future<void> _refreshRecentVideos() async {
+    ref.invalidate(overviewRecentVideosProvider);
+    await ref.read(overviewRecentVideosProvider.future);
   }
 
   Future<void> _toggleMovieSubscription(String movieNumber) async {
@@ -82,6 +91,7 @@ class _DesktopOverviewPageState extends ConsumerState<DesktopOverviewPage> {
   Widget build(BuildContext context) {
     final systemInfo = ref.watch(overviewSystemInfoProvider);
     final moviesAsync = ref.watch(movieSummaryProvider(_latestScope));
+    final recentVideosAsync = ref.watch(overviewRecentVideosProvider);
     final movies = moviesAsync.value;
     final paged = movies?.paged;
     final stats = systemInfo.status == null
@@ -193,9 +203,28 @@ class _DesktopOverviewPageState extends ConsumerState<DesktopOverviewPage> {
                 SliverToBoxAdapter(
                   child: SizedBox(height: context.appSpacing.xxl),
                 ),
+                OverviewRecentVideosSliverSection(
+                  items: recentVideosAsync.value ?? const [],
+                  isLoading:
+                      recentVideosAsync.isLoading &&
+                      !recentVideosAsync.hasValue,
+                  errorMessage:
+                      recentVideosAsync.hasError &&
+                          !recentVideosAsync.hasValue
+                      ? '普通视频加载失败，请稍后重试'
+                      : null,
+                  onVideoTap: (video) => context.pushDesktopVideoPlayer(
+                    videoId: video.id,
+                    fallbackPath: desktopOverviewPath,
+                  ),
+                  onViewAll: () => context.go(desktopVideosPath),
+                ),
+                SliverToBoxAdapter(
+                  child: SizedBox(height: context.appSpacing.xxl),
+                ),
                 SliverToBoxAdapter(
                   child: Text(
-                    '最近添加',
+                    '最近添加的影片',
                     style: resolveAppTextStyle(
                       context,
                       size: AppTextSize.s14,
