@@ -224,7 +224,7 @@ class _DesktopOverviewPageState extends ConsumerState<DesktopOverviewPage> {
                 ),
                 SliverToBoxAdapter(
                   child: Text(
-                    '最近添加的影片',
+                    '最近添加',
                     style: resolveAppTextStyle(
                       context,
                       size: AppTextSize.s14,
